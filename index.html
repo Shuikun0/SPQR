@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SPQR</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.88em' x='50%25' text-anchor='middle' font-size='76'%3E%F0%9F%93%B1%3C/text%3E%3C/svg%3E" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f4f5;
+      --card: #fff;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --muted: #71717a;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    #page-main[hidden] {
+      display: none !important;
+    }
+    #page-main {
+      padding: 0;
+    }
+    .app-shell {
+      max-width: 56rem;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .app-header {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .app-title {
+      font-size: 1.375rem;
+      font-weight: 600;
+      margin: 0;
+      flex-shrink: 0;
+    }
+    .app-header-spacer {
+      flex: 1;
+      min-width: 0.5rem;
+    }
+    .app-header-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    details.settings {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.5rem 1rem;
+    }
+    details.settings > summary {
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--muted);
+      user-select: none;
+      list-style: none;
+    }
+    details.settings > summary::-webkit-details-marker { display: none; }
+    details.settings[open] > summary { margin-bottom: 0.75rem; }
+    .settings-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      font-size: 0.875rem;
+      padding-bottom: 0.25rem;
+    }
+    .settings-body label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .settings-body label.checkbox-label {
+      cursor: pointer;
+      user-select: none;
+    }
+    .settings-body label.checkbox-label input { width: auto; margin: 0; }
+    .settings-body input[type="number"] {
+      width: 5.5rem;
+      padding: 0.35rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+    .hint {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.45;
+    }
+    #page-scan[hidden] {
+      display: none !important;
+    }
+    #page-scan:not([hidden]) {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .scan-subtitle {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+    }
+    .scan-lead {
+      margin: 0 0 1rem;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+    .scan-preview-shell {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0a0a0a;
+      min-height: min(72vw, 360px);
+      position: relative;
+      cursor: pointer;
+    }
+    .scan-preview-shell.is-live {
+      background: #000;
+      cursor: default;
+    }
+    #scan-reader {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      min-height: min(72vw, 360px);
+    }
+    #scan-reader video {
+      width: 100% !important;
+      height: auto !important;
+      display: block;
+      object-fit: cover;
+    }
+    .scan-placeholder {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.875rem;
+      color: #a1a1aa;
+      pointer-events: none;
+    }
+    .scan-preview-shell.is-live .scan-placeholder {
+      display: none;
+    }
+    .scan-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .scan-status {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      min-height: 1.35rem;
+      margin: 0.5rem 0 0;
+    }
+    .scan-result-block {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .scan-result-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    #scanResultOut {
+      min-height: 6rem;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.8125rem;
+      resize: vertical;
+    }
+    .scan-result-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    button {
+      cursor: pointer;
+      font-size: 0.875rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover { background: #f4f4f5; }
+    button.danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.6rem;
+      font-size: 0.8125rem;
+    }
+    button.danger:hover { background: #fef2f2; }
+    .rows { display: flex; flex-direction: column; gap: 1.25rem; }
+    .row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .row-title { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
+    textarea {
+      width: 100%;
+      min-height: 5rem;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      resize: vertical;
+    }
+    textarea:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.35);
+      outline-offset: 1px;
+    }
+    .qr-zone {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .qr-zone--single { justify-content: center; }
+    .qr-zone.qr-hover-dim.qr-zone--multi .qr-item {
+      opacity: 0.03;
+      transition: opacity 0.12s ease;
+    }
+    .qr-zone.qr-hover-dim.qr-zone--multi .qr-item:hover { opacity: 1; }
+    @media (hover: none) {
+      .qr-zone.qr-hover-dim.qr-zone--multi .qr-item,
+      .qr-zone.qr-hover-dim.qr-zone--multi .qr-item:hover {
+        opacity: 1;
+      }
+    }
+    .qr-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .qr-item .qr-holder {
+      display: inline-block;
+      line-height: 0;
+      background: #fff;
+    }
+    .qr-item .qr-holder canvas,
+    .qr-item .qr-holder img,
+    .qr-item .qr-holder table {
+      display: block;
+      vertical-align: top;
+    }
+    .qr-label { font-size: 0.75rem; color: var(--muted); }
+    .qr-empty {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      padding: 0.5rem 0;
+    }
+    .error-msg {
+      color: var(--danger);
+      font-size: 0.8125rem;
+      margin-top: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <h1 class="app-title">SPQR</h1>
+      <div class="app-header-spacer" aria-hidden="true"></div>
+      <div class="app-header-actions">
+        <button type="button" class="secondary" id="navToggle">扫码</button>
+        <details class="settings" id="settingsPanel">
+          <summary>设置</summary>
+          <div class="settings-body">
+            <label>
+              单码最大长度（字符）
+              <input type="number" id="maxLen" min="100" max="2953" value="800" />
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="hoverDimToggle" />
+              多码时悬停高亮（其余约 3% 透明度）
+            </label>
+            <p class="hint">
+              单码长度 100～2953 字符；超长会并排多个码，按标签顺序扫描还原。在一段里输入内容后，末尾会自动多出一行空段；删到只剩两行都空时会合并为一行。
+            </p>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <div id="page-main">
+      <div class="rows" id="rows"></div>
+    </div>
+
+    <div id="page-scan" hidden>
+      <p class="scan-subtitle">扫码</p>
+      <p class="scan-lead">点击下方预览区域开始摄像头扫描；识别结果在预览下方，可一键复制。</p>
+      <div class="scan-preview-shell" id="scanPreviewShell" role="button" tabindex="0" aria-label="点击开始扫描">
+        <p class="scan-placeholder" id="scanPlaceholder">点击此处开始扫描</p>
+        <div id="scan-reader"></div>
+      </div>
+      <p class="scan-status" id="scanStatus"></p>
+      <div class="scan-result-block">
+        <span class="scan-result-label">识别结果</span>
+        <textarea id="scanResultOut" readonly rows="5" spellcheck="false" placeholder="识别成功后内容显示在此，可多次扫描追加"></textarea>
+        <div class="scan-result-actions">
+          <button type="button" id="scanCopyBtn" class="secondary">复制</button>
+        </div>
+      </div>
+      <div class="scan-actions">
+        <button type="button" id="scanStop" class="secondary">停止摄像头</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var rowsEl = document.getElementById("rows");
+      var maxLenInput = document.getElementById("maxLen");
+      var rowCounter = 0;
+      var MIN_CHUNK = 100;
+      var MAX_CHUNK = 2953;
+
+      var html5QrCode = null;
+      var scanRunning = false;
+
+      var pageMain = document.getElementById("page-main");
+      var pageScan = document.getElementById("page-scan");
+      var scanPreviewShell = document.getElementById("scanPreviewShell");
+
+      function stopScanAndReset() {
+        var regionEl = document.getElementById("scan-reader");
+        var statusEl = document.getElementById("scanStatus");
+        if (html5QrCode && scanRunning) {
+          html5QrCode.stop().then(
+            function () {
+              scanRunning = false;
+            },
+            function () {
+              scanRunning = false;
+            }
+          );
+        } else {
+          scanRunning = false;
+        }
+        if (regionEl) regionEl.innerHTML = "";
+        if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
+        if (statusEl) statusEl.textContent = "";
+      }
+
+      function updateNavButton() {
+        var btn = document.getElementById("navToggle");
+        if (!btn) return;
+        btn.textContent = pageScan.hidden ? "扫码" : "生成";
+      }
+
+      function showMain() {
+        stopScanAndReset();
+        pageScan.hidden = true;
+        pageMain.hidden = false;
+        document.title = "SPQR";
+        updateNavButton();
+      }
+
+      function showScanPage() {
+        pageMain.hidden = true;
+        pageScan.hidden = false;
+        document.title = "SPQR";
+        stopScanAndReset();
+        updateNavButton();
+      }
+
+      function clampMaxLenInput() {
+        var n = parseInt(maxLenInput.value, 10);
+        if (!isFinite(n)) {
+          maxLenInput.value = "800";
+          return;
+        }
+        maxLenInput.value = String(Math.min(MAX_CHUNK, Math.max(MIN_CHUNK, n)));
+      }
+
+      function getMaxLen() {
+        var n = parseInt(maxLenInput.value, 10);
+        if (!isFinite(n) || n < MIN_CHUNK) return 800;
+        return Math.min(MAX_CHUNK, Math.max(MIN_CHUNK, n));
+      }
+
+      function splitChunks(str, maxLen) {
+        if (!str.length) return [];
+        var chunks = [];
+        for (var i = 0; i < str.length; i += maxLen) {
+          chunks.push(str.slice(i, i + maxLen));
+        }
+        return chunks;
+      }
+
+      function hoverDimEnabled() {
+        var el = document.getElementById("hoverDimToggle");
+        return el && el.checked;
+      }
+
+      function renderRowQrs(zoneEl, text, maxLen) {
+        zoneEl.innerHTML = "";
+        zoneEl.classList.remove("qr-zone--multi", "qr-zone--single", "qr-hover-dim");
+
+        var chunks = splitChunks(text, maxLen);
+        if (!chunks.length) {
+          var empty = document.createElement("p");
+          empty.className = "qr-empty";
+          empty.textContent = "粘贴内容后将在此显示二维码";
+          zoneEl.appendChild(empty);
+          return;
+        }
+
+        if (typeof QRCode === "undefined") {
+          var libErr = document.createElement("p");
+          libErr.className = "error-msg";
+          libErr.textContent =
+            "二维码生成脚本未加载。请联网后刷新。";
+          zoneEl.appendChild(libErr);
+          return;
+        }
+
+        var total = chunks.length;
+        if (total > 1) {
+          zoneEl.classList.add("qr-zone--multi");
+          if (hoverDimEnabled()) zoneEl.classList.add("qr-hover-dim");
+        } else {
+          zoneEl.classList.add("qr-zone--single");
+        }
+
+        chunks.forEach(function (chunk, idx) {
+          var wrap = document.createElement("div");
+          wrap.className = "qr-item";
+          var holder = document.createElement("div");
+          holder.className = "qr-holder";
+          var label = document.createElement("span");
+          label.className = "qr-label";
+          label.textContent = total > 1 ? idx + 1 + " / " + total : "二维码";
+
+          try {
+            new QRCode(holder, {
+              text: chunk,
+              width: 200,
+              height: 200,
+              colorDark: "#000000",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.M,
+            });
+          } catch (e) {
+            var errP = document.createElement("p");
+            errP.className = "error-msg";
+            errP.textContent = "生成失败：" + (e && e.message ? e.message : String(e));
+            zoneEl.appendChild(errP);
+            return;
+          }
+
+          wrap.appendChild(holder);
+          wrap.appendChild(label);
+          zoneEl.appendChild(wrap);
+        });
+      }
+
+      function refreshAllRows() {
+        rowsEl.querySelectorAll(".row").forEach(function (row) {
+          var ta = row.querySelector("textarea");
+          var zone = row.querySelector(".qr-zone");
+          if (ta && zone) renderRowQrs(zone, ta.value, getMaxLen());
+        });
+      }
+
+      function normalizeTrailingRows() {
+        var changed = false;
+        while (rowsEl.children.length >= 2) {
+          var tas = rowsEl.querySelectorAll(".row textarea");
+          var n = tas.length;
+          if (n >= 2 && tas[n - 1].value.trim() === "" && tas[n - 2].value.trim() === "") {
+            rowsEl.lastElementChild.remove();
+            changed = true;
+          } else {
+            break;
+          }
+        }
+        if (!rowsEl.children.length) {
+          createRow();
+          changed = true;
+        }
+        tas = rowsEl.querySelectorAll(".row textarea");
+        if (tas.length && tas[tas.length - 1].value.trim() !== "") {
+          createRow();
+          changed = true;
+        }
+        if (changed) refreshAllRows();
+      }
+
+      function createRow(initialText) {
+        rowCounter += 1;
+        var row = document.createElement("div");
+        row.className = "row";
+
+        var head = document.createElement("div");
+        head.className = "row-head";
+        var title = document.createElement("span");
+        title.className = "row-title";
+        title.textContent = "第 " + rowCounter + " 段";
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "danger";
+        removeBtn.textContent = "删除";
+        removeBtn.addEventListener("click", function () {
+          row.remove();
+          if (!rowsEl.children.length) createRow();
+          refreshAllRows();
+          normalizeTrailingRows();
+        });
+        head.appendChild(title);
+        head.appendChild(removeBtn);
+
+        var ta = document.createElement("textarea");
+        ta.placeholder = "粘贴或输入文本…";
+        ta.setAttribute("spellcheck", "false");
+        if (typeof initialText === "string" && initialText.length) ta.value = initialText;
+
+        var zone = document.createElement("div");
+        zone.className = "qr-zone";
+        if (ta.value.length) {
+          renderRowQrs(zone, ta.value, getMaxLen());
+        } else {
+          var empty = document.createElement("p");
+          empty.className = "qr-empty";
+          empty.textContent = "粘贴内容后将在此显示二维码";
+          zone.appendChild(empty);
+        }
+
+        function onEdit() {
+          renderRowQrs(zone, ta.value, getMaxLen());
+          normalizeTrailingRows();
+        }
+
+        ta.addEventListener("input", onEdit);
+        ta.addEventListener("paste", function () {
+          setTimeout(onEdit, 0);
+        });
+
+        row.appendChild(head);
+        row.appendChild(ta);
+        row.appendChild(zone);
+        rowsEl.appendChild(row);
+      }
+
+      function applyScanResult(text) {
+        var out = document.getElementById("scanResultOut");
+        var status = document.getElementById("scanStatus");
+        if (out) {
+          if (out.value) out.value += "\n";
+          out.value += text;
+        }
+        if (status) status.textContent = "已识别，可复制下方文本。";
+      }
+
+      function copyScanResult() {
+        var out = document.getElementById("scanResultOut");
+        var status = document.getElementById("scanStatus");
+        if (!out || !out.value) {
+          if (status) status.textContent = "没有可复制的内容。";
+          return;
+        }
+        var t = out.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(t).then(
+            function () {
+              if (status) status.textContent = "已复制到剪贴板。";
+            },
+            function () {
+              fallbackCopyScan(t);
+            }
+          );
+        } else {
+          fallbackCopyScan(t);
+        }
+      }
+
+      function fallbackCopyScan(t) {
+        var out = document.getElementById("scanResultOut");
+        var status = document.getElementById("scanStatus");
+        try {
+          out.select();
+          out.setSelectionRange(0, t.length);
+          document.execCommand("copy");
+          if (status) status.textContent = "已复制到剪贴板。";
+        } catch (e) {
+          if (status) status.textContent = "复制失败，请手动全选复制。";
+        }
+      }
+
+      function stopScanOnly() {
+        if (html5QrCode && scanRunning) {
+          html5QrCode.stop().then(
+            function () {
+              scanRunning = false;
+            },
+            function () {
+              scanRunning = false;
+            }
+          );
+        } else {
+          scanRunning = false;
+        }
+      }
+
+      function scanConfig() {
+        return { fps: 12, qrbox: { width: 280, height: 280 } };
+      }
+
+      function startScanWithCamera(config) {
+        var regionEl = document.getElementById("scan-reader");
+        return html5QrCode.start(
+          config,
+          scanConfig(),
+          function (decodedText) {
+            function afterStop() {
+              scanRunning = false;
+              if (regionEl) regionEl.innerHTML = "";
+              if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
+              applyScanResult(decodedText);
+            }
+            if (html5QrCode && scanRunning) {
+              html5QrCode.stop().then(afterStop, afterStop);
+            } else {
+              afterStop();
+            }
+          },
+          function () {}
+        );
+      }
+
+      function startScanFromUser() {
+        if (scanRunning) return;
+        var regionEl = document.getElementById("scan-reader");
+        var status = document.getElementById("scanStatus");
+        if (typeof Html5Qrcode === "undefined") {
+          if (status) status.textContent = "扫码库未加载，请联网后刷新。";
+          return;
+        }
+        stopScanOnly();
+        if (regionEl) regionEl.innerHTML = "";
+        if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
+        if (status) status.textContent = "正在请求摄像头…";
+
+        html5QrCode = new Html5Qrcode("scan-reader");
+        startScanWithCamera({ facingMode: "environment" })
+          .catch(function () {
+            return startScanWithCamera({ facingMode: "user" });
+          })
+          .then(function () {
+            scanRunning = true;
+            if (scanPreviewShell) scanPreviewShell.classList.add("is-live");
+            if (status) status.textContent = "预览中，对准二维码…";
+          })
+          .catch(function (e) {
+            scanRunning = false;
+            if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
+            if (status) status.textContent = (e && e.message) || String(e);
+          });
+      }
+
+      document.getElementById("navToggle").addEventListener("click", function () {
+        if (pageScan.hidden) {
+          showScanPage();
+        } else {
+          showMain();
+        }
+      });
+
+      scanPreviewShell.addEventListener("click", function () {
+        if (scanRunning) return;
+        startScanFromUser();
+      });
+
+      scanPreviewShell.addEventListener("keydown", function (e) {
+        if (scanRunning) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          startScanFromUser();
+        }
+      });
+
+      document.getElementById("scanCopyBtn").addEventListener("click", copyScanResult);
+
+      document.getElementById("scanStop").addEventListener("click", function () {
+        var regionEl = document.getElementById("scan-reader");
+        var status = document.getElementById("scanStatus");
+        stopScanOnly();
+        if (regionEl) regionEl.innerHTML = "";
+        if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
+        if (status) status.textContent = "已停止。";
+      });
+
+      maxLenInput.addEventListener("blur", clampMaxLenInput);
+      maxLenInput.addEventListener("input", refreshAllRows);
+      document.getElementById("hoverDimToggle").addEventListener("change", refreshAllRows);
+
+      createRow();
+      normalizeTrailingRows();
+      updateNavButton();
+
+      requestAnimationFrame(function () {
+        var first = rowsEl.querySelector(".row textarea");
+        if (first) first.focus();
+      });
+    })();
+  </script>
+</body>
+</html>
