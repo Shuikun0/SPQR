@@ -40,26 +40,48 @@
     }
     .app-header {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
+      gap: 0.875rem;
+      margin-bottom: 1.25rem;
     }
     .app-title {
       font-size: 1.375rem;
       font-weight: 600;
       margin: 0;
-      flex-shrink: 0;
+      text-align: center;
     }
-    .app-header-spacer {
-      flex: 1;
-      min-width: 0.5rem;
+    .app-tabs {
+      display: inline-flex;
+      padding: 3px;
+      background: var(--border);
+      border-radius: 10px;
+      gap: 2px;
     }
-    .app-header-actions {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0.75rem;
+    .app-tab {
+      border: none;
+      background: transparent;
+      padding: 0.5rem 1.35rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--muted);
+      white-space: nowrap;
+      transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .app-tab:hover {
+      color: var(--text);
+    }
+    .app-tab.is-active {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+    .app-tab:focus-visible {
+      outline: 2px solid rgba(37, 99, 235, 0.45);
+      outline-offset: 2px;
     }
     #page-scan[hidden] {
       display: none !important;
@@ -69,26 +91,47 @@
       flex-direction: column;
       padding: 0;
       box-sizing: border-box;
+      max-height: calc(100vh - 7.5rem);
+      min-height: 0;
     }
-    .scan-subtitle {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--muted);
-      margin: 0 0 0.75rem;
+    .scan-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      align-items: stretch;
+      flex: 1;
+      min-height: 0;
     }
-    .scan-lead {
-      margin: 0 0 1rem;
-      font-size: 0.8125rem;
-      color: var(--muted);
+    @media (max-width: 700px) {
+      .scan-layout {
+        grid-template-columns: 1fr;
+        max-height: none;
+      }
+    }
+    .scan-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-height: 0;
+    }
+    .scan-col--preview {
+      align-items: stretch;
+    }
+    .scan-col--result {
+      justify-content: stretch;
     }
     .scan-preview-shell {
       width: 100%;
+      max-width: min(100%, 420px);
+      margin: 0 auto;
       border-radius: 12px;
       overflow: hidden;
       background: #0a0a0a;
-      min-height: min(72vw, 360px);
+      aspect-ratio: 1 / 1;
+      max-height: min(52vh, 380px);
       position: relative;
       cursor: pointer;
+      flex-shrink: 0;
     }
     .scan-preview-shell.is-live {
       background: #000;
@@ -98,7 +141,8 @@
       position: relative;
       z-index: 2;
       width: 100%;
-      min-height: min(72vw, 360px);
+      height: 100%;
+      min-height: 0;
     }
     #scan-reader video {
       width: 100% !important;
@@ -122,39 +166,113 @@
     .scan-preview-shell.is-live .scan-placeholder {
       display: none;
     }
+    /* 前置摄像头预览镜像（与自拍习惯一致）；仅影响显示，不影响解码 */
+    .scan-preview-shell.scan-preview--mirror #scan-reader {
+      transform: scaleX(-1);
+    }
     .scan-actions {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
+      width: 100%;
+      flex-shrink: 0;
+      margin-top: 0;
     }
-    .scan-status {
-      font-size: 0.8125rem;
-      color: var(--muted);
-      min-height: 1.35rem;
-      margin: 0.5rem 0 0;
+    .scan-actions #scanStop {
+      width: 100%;
+      box-sizing: border-box;
     }
     .scan-result-block {
-      margin-top: 1rem;
+      margin-top: 0;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-    }
-    .scan-result-label {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--muted);
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      align-items: stretch;
     }
     #scanResultOut {
-      min-height: 6rem;
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+      min-height: 12rem;
+      max-height: min(52vh, 380px);
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.8125rem;
-      resize: vertical;
+      resize: none;
+      line-height: 1.45;
+      cursor: default;
+      background: var(--card);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    #scanResultOut.scan-result--decoded-pulse {
+      animation: scanResultDecodedPulse 0.9s ease-out forwards;
+    }
+    #scanResultOut.scan-result--copy-ok {
+      animation: scanResultCopyOk 0.55s ease;
+    }
+    #scanResultOut.scan-result--noop {
+      animation: scanResultNoop 0.45s ease;
+    }
+    @keyframes scanResultDecodedPulse {
+      0% {
+        border-color: rgba(37, 99, 235, 0.75);
+        box-shadow:
+          inset 0 0 0 2px rgba(37, 99, 235, 0.55),
+          0 0 0 1px rgba(37, 99, 235, 0.35),
+          0 10px 36px rgba(37, 99, 235, 0.22);
+        background: rgba(191, 219, 254, 0.95);
+      }
+      40% {
+        border-color: rgba(37, 99, 235, 0.45);
+        box-shadow:
+          inset 0 0 0 2px rgba(37, 99, 235, 0.35),
+          0 4px 20px rgba(37, 99, 235, 0.14);
+        background: rgba(219, 234, 254, 0.88);
+      }
+      100% {
+        border-color: var(--border);
+        box-shadow: none;
+        background: var(--card);
+      }
+    }
+    @keyframes scanResultCopyOk {
+      0% {
+        box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.55);
+        background: rgba(219, 234, 254, 0.75);
+      }
+      100% {
+        box-shadow: inset 0 0 0 2px transparent;
+        background: var(--card);
+      }
+    }
+    @keyframes scanResultNoop {
+      0%,
+      100% {
+        box-shadow: inset 0 0 0 2px transparent;
+      }
+      50% {
+        box-shadow: inset 0 0 0 2px rgba(161, 161, 170, 0.6);
+        background: rgba(244, 244, 245, 0.95);
+      }
+    }
+    @media (max-width: 700px) {
+      #scanResultOut {
+        max-height: 40vh;
+        min-height: 8rem;
+      }
+      .scan-preview-shell {
+        max-height: min(56vw, 320px);
+      }
     }
     .scan-result-actions {
       display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+      width: 100%;
+      flex-shrink: 0;
+    }
+    .scan-result-actions #scanCopyBtn {
+      width: 100%;
+      box-sizing: border-box;
     }
     button {
       cursor: pointer;
@@ -288,33 +406,44 @@
   <div class="app-shell">
     <header class="app-header">
       <h1 class="app-title">🏛️ SPQR</h1>
-      <div class="app-header-spacer" aria-hidden="true"></div>
-      <div class="app-header-actions">
-        <button type="button" class="secondary" id="navToggle">扫码</button>
-      </div>
+      <nav class="app-tabs" role="tablist" aria-label="功能切换">
+        <button type="button" class="app-tab is-active" id="tabGenerate" role="tab" aria-selected="true" aria-controls="page-main">
+          生成
+        </button>
+        <button type="button" class="app-tab" id="tabScan" role="tab" aria-selected="false" aria-controls="page-scan">
+          扫码
+        </button>
+      </nav>
     </header>
 
-    <div id="page-main">
+    <div id="page-main" role="tabpanel" aria-labelledby="tabGenerate">
       <div class="rows" id="rows"></div>
     </div>
 
-    <div id="page-scan" hidden>
-      <p class="scan-subtitle">扫码</p>
-      <p class="scan-lead">点击下方预览区域开始摄像头扫描；识别结果在预览下方，可一键复制。</p>
-      <div class="scan-preview-shell" id="scanPreviewShell" role="button" tabindex="0" aria-label="点击开始扫描">
-        <p class="scan-placeholder" id="scanPlaceholder">点击此处开始扫描</p>
-        <div id="scan-reader"></div>
-      </div>
-      <p class="scan-status" id="scanStatus"></p>
-      <div class="scan-result-block">
-        <span class="scan-result-label">识别结果</span>
-        <textarea id="scanResultOut" readonly rows="5" spellcheck="false" placeholder="识别成功后显示在此；再次扫描会替换为新的内容"></textarea>
-        <div class="scan-result-actions">
-          <button type="button" id="scanCopyBtn" class="secondary">复制</button>
+    <div id="page-scan" hidden role="tabpanel" aria-labelledby="tabScan">
+      <div class="scan-layout">
+        <div class="scan-col scan-col--preview">
+          <div class="scan-preview-shell" id="scanPreviewShell" role="button" tabindex="0" aria-label="开启摄像头扫描">
+            <p class="scan-placeholder" id="scanPlaceholder">开启摄像头📸</p>
+            <div id="scan-reader"></div>
+          </div>
+          <div class="scan-actions">
+            <button type="button" id="scanStop" class="secondary">停止</button>
+          </div>
         </div>
-      </div>
-      <div class="scan-actions">
-        <button type="button" id="scanStop" class="secondary">停止摄像头</button>
+        <div class="scan-col scan-col--result">
+          <div class="scan-result-block">
+            <textarea
+              id="scanResultOut"
+              readonly
+              rows="6"
+              spellcheck="false"
+            ></textarea>
+            <div class="scan-result-actions">
+              <button type="button" id="scanCopyBtn" class="secondary">复制</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -340,6 +469,7 @@
 
       var html5QrCode = null;
       var scanRunning = false;
+      var lastDecodedText = "";
 
       var pageMain = document.getElementById("page-main");
       var pageScan = document.getElementById("page-scan");
@@ -458,7 +588,6 @@
 
       function stopScanAndReset() {
         var regionEl = document.getElementById("scan-reader");
-        var statusEl = document.getElementById("scanStatus");
         if (html5QrCode && scanRunning) {
           html5QrCode.stop().then(
             function () {
@@ -472,14 +601,22 @@
           scanRunning = false;
         }
         if (regionEl) regionEl.innerHTML = "";
-        if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
-        if (statusEl) statusEl.textContent = "";
+        if (scanPreviewShell) {
+          scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
+        }
+        lastDecodedText = "";
       }
 
-      function updateNavButton() {
-        var btn = document.getElementById("navToggle");
-        if (!btn) return;
-        btn.textContent = pageScan.hidden ? "扫码" : "生成";
+      var tabGenerate = document.getElementById("tabGenerate");
+      var tabScan = document.getElementById("tabScan");
+
+      function updateTabs() {
+        if (!tabGenerate || !tabScan) return;
+        var onScan = !pageScan.hidden;
+        tabGenerate.classList.toggle("is-active", !onScan);
+        tabScan.classList.toggle("is-active", onScan);
+        tabGenerate.setAttribute("aria-selected", onScan ? "false" : "true");
+        tabScan.setAttribute("aria-selected", onScan ? "true" : "false");
       }
 
       function showMain() {
@@ -488,7 +625,7 @@
         pageScan.hidden = true;
         pageMain.hidden = false;
         document.title = "SPQR";
-        updateNavButton();
+        updateTabs();
       }
 
       function showScanPage() {
@@ -497,7 +634,7 @@
         pageScan.hidden = false;
         document.title = "SPQR";
         stopScanAndReset();
-        updateNavButton();
+        updateTabs();
       }
 
       function renderRowQrs(zoneEl, text) {
@@ -626,25 +763,64 @@
 
       function applyScanResult(text) {
         var out = document.getElementById("scanResultOut");
-        var status = document.getElementById("scanStatus");
         if (out) {
           out.value = text;
+          out.classList.remove(
+            "scan-result--decoded-pulse",
+            "scan-result--copy-ok",
+            "scan-result--noop"
+          );
+          void out.offsetWidth;
+          out.classList.add("scan-result--decoded-pulse");
+          function clearDecoded() {
+            out.classList.remove("scan-result--decoded-pulse");
+          }
+          out.addEventListener("animationend", clearDecoded, { once: true });
+          setTimeout(clearDecoded, 1000);
         }
-        if (status) status.textContent = "已识别，可复制下方文本。";
+      }
+
+      function flashScanResult(ok) {
+        var out = document.getElementById("scanResultOut");
+        if (!out) return;
+        out.classList.remove(
+          "scan-result--decoded-pulse",
+          "scan-result--copy-ok",
+          "scan-result--noop"
+        );
+        void out.offsetWidth;
+        out.classList.add(ok ? "scan-result--copy-ok" : "scan-result--noop");
+        function clear() {
+          out.classList.remove("scan-result--copy-ok", "scan-result--noop");
+        }
+        out.addEventListener("animationend", clear, { once: true });
+        setTimeout(clear, 650);
+      }
+
+      function flashCopyButton() {
+        var btn = document.getElementById("scanCopyBtn");
+        if (!btn) return;
+        if (btn._copyResetTimer) clearTimeout(btn._copyResetTimer);
+        if (!btn._defaultCopyLabel) btn._defaultCopyLabel = btn.textContent.trim() || "复制";
+        btn.textContent = "已复制";
+        btn._copyResetTimer = setTimeout(function () {
+          btn.textContent = btn._defaultCopyLabel;
+          btn._copyResetTimer = null;
+        }, 1600);
       }
 
       function copyScanResult() {
         var out = document.getElementById("scanResultOut");
-        var status = document.getElementById("scanStatus");
         if (!out || !out.value) {
-          if (status) status.textContent = "没有可复制的内容。";
+          flashScanResult(false);
           return;
         }
         var t = out.value;
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(t).then(
             function () {
-              if (status) status.textContent = "已复制到剪贴板。";
+              flashScanResult(true);
+              flashCopyButton();
             },
             function () {
               fallbackCopyScan(t);
@@ -657,14 +833,14 @@
 
       function fallbackCopyScan(t) {
         var out = document.getElementById("scanResultOut");
-        var status = document.getElementById("scanStatus");
         try {
           out.select();
           out.setSelectionRange(0, t.length);
           document.execCommand("copy");
-          if (status) status.textContent = "已复制到剪贴板。";
+          flashScanResult(true);
+          flashCopyButton();
         } catch (e) {
-          if (status) status.textContent = "复制失败，请手动全选复制。";
+          flashScanResult(false);
         }
       }
 
@@ -688,22 +864,14 @@
       }
 
       function startScanWithCamera(config) {
-        var regionEl = document.getElementById("scan-reader");
         return html5QrCode.start(
           config,
           scanConfig(),
           function (decodedText) {
-            function afterStop() {
-              scanRunning = false;
-              if (regionEl) regionEl.innerHTML = "";
-              if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
-              applyScanResult(decodedText);
-            }
-            if (html5QrCode && scanRunning) {
-              html5QrCode.stop().then(afterStop, afterStop);
-            } else {
-              afterStop();
-            }
+            if (!scanRunning) return;
+            if (decodedText === lastDecodedText) return;
+            lastDecodedText = decodedText;
+            applyScanResult(decodedText);
           },
           function () {}
         );
@@ -712,40 +880,50 @@
       function startScanFromUser() {
         if (scanRunning) return;
         var regionEl = document.getElementById("scan-reader");
-        var status = document.getElementById("scanStatus");
         if (typeof Html5Qrcode === "undefined") {
-          if (status) status.textContent = "扫码库未加载，请联网后刷新。";
+          alert("扫码库未加载，请联网后刷新。");
           return;
         }
         stopScanOnly();
         if (regionEl) regionEl.innerHTML = "";
-        if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
-        if (status) status.textContent = "正在请求摄像头…";
+        if (scanPreviewShell) {
+          scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
+        }
+        lastDecodedText = "";
 
         html5QrCode = new Html5Qrcode("scan-reader");
-        startScanWithCamera({ facingMode: "environment" })
+        var useMirrorPreview = true;
+        startScanWithCamera({ facingMode: "user" })
           .catch(function () {
-            return startScanWithCamera({ facingMode: "user" });
+            useMirrorPreview = false;
+            return startScanWithCamera({ facingMode: "environment" });
           })
           .then(function () {
             scanRunning = true;
-            if (scanPreviewShell) scanPreviewShell.classList.add("is-live");
-            if (status) status.textContent = "预览中，对准二维码…";
+            if (scanPreviewShell) {
+              scanPreviewShell.classList.add("is-live");
+              scanPreviewShell.classList.toggle("scan-preview--mirror", useMirrorPreview);
+            }
           })
           .catch(function (e) {
             scanRunning = false;
-            if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
-            if (status) status.textContent = (e && e.message) || String(e);
+            if (scanPreviewShell) {
+              scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
+            }
+            alert((e && e.message) || String(e));
           });
       }
 
-      document.getElementById("navToggle").addEventListener("click", function () {
-        if (pageScan.hidden) {
-          showScanPage();
-        } else {
+      if (tabGenerate) {
+        tabGenerate.addEventListener("click", function () {
           showMain();
-        }
-      });
+        });
+      }
+      if (tabScan) {
+        tabScan.addEventListener("click", function () {
+          showScanPage();
+        });
+      }
 
       scanPreviewShell.addEventListener("click", function () {
         if (scanRunning) return;
@@ -764,16 +942,17 @@
 
       document.getElementById("scanStop").addEventListener("click", function () {
         var regionEl = document.getElementById("scan-reader");
-        var status = document.getElementById("scanStatus");
         stopScanOnly();
+        lastDecodedText = "";
         if (regionEl) regionEl.innerHTML = "";
-        if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
-        if (status) status.textContent = "已停止。";
+        if (scanPreviewShell) {
+          scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
+        }
       });
 
       createRow();
       normalizeTrailingRows();
-      updateNavButton();
+      updateTabs();
 
       requestAnimationFrame(function () {
         var first = rowsEl.querySelector(".row textarea");
