@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SPQR</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.88em' x='50%25' text-anchor='middle' font-size='76'%3E%F0%9F%93%B1%3C/text%3E%3C/svg%3E" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
@@ -61,53 +60,6 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 0.75rem;
-    }
-    details.settings {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.5rem 1rem;
-    }
-    details.settings > summary {
-      cursor: pointer;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--muted);
-      user-select: none;
-      list-style: none;
-    }
-    details.settings > summary::-webkit-details-marker { display: none; }
-    details.settings[open] > summary { margin-bottom: 0.75rem; }
-    .settings-body {
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-      font-size: 0.875rem;
-      padding-bottom: 0.25rem;
-    }
-    .settings-body label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-    .settings-body label.checkbox-label {
-      cursor: pointer;
-      user-select: none;
-    }
-    .settings-body label.checkbox-label input { width: auto; margin: 0; }
-    .settings-body input[type="number"] {
-      width: 5.5rem;
-      padding: 0.35rem 0.5rem;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 0.875rem;
-    }
-    .hint {
-      font-size: 0.8125rem;
-      color: var(--muted);
-      margin: 0;
-      line-height: 1.45;
     }
     #page-scan[hidden] {
       display: none !important;
@@ -259,21 +211,8 @@
     .qr-zone {
       margin-top: 1rem;
       display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
+      justify-content: center;
       align-items: flex-start;
-    }
-    .qr-zone--single { justify-content: center; }
-    .qr-zone.qr-hover-dim.qr-zone--multi .qr-item {
-      opacity: 0.03;
-      transition: opacity 0.12s ease;
-    }
-    .qr-zone.qr-hover-dim.qr-zone--multi .qr-item:hover { opacity: 1; }
-    @media (hover: none) {
-      .qr-zone.qr-hover-dim.qr-zone--multi .qr-item,
-      .qr-zone.qr-hover-dim.qr-zone--multi .qr-item:hover {
-        opacity: 1;
-      }
     }
     .qr-item {
       display: flex;
@@ -286,13 +225,53 @@
       line-height: 0;
       background: #fff;
     }
+    .qr-holder.qr-holder--interactive {
+      cursor: pointer;
+      border-radius: 4px;
+      outline: none;
+    }
+    .qr-holder.qr-holder--interactive:focus-visible {
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.45);
+    }
+    .qr-page-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.78);
+      cursor: pointer;
+    }
+    .qr-page-overlay[hidden] {
+      display: none !important;
+    }
+    .qr-page-overlay__panel {
+      cursor: default;
+      text-align: center;
+      max-width: 100%;
+    }
+    .qr-page-overlay__canvas {
+      display: block;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .qr-page-overlay__hint {
+      margin: 0.75rem 0 0;
+      font-size: 0.8125rem;
+      color: #e4e4e7;
+    }
     .qr-item .qr-holder canvas,
     .qr-item .qr-holder img,
     .qr-item .qr-holder table {
       display: block;
       vertical-align: top;
     }
-    .qr-label { font-size: 0.75rem; color: var(--muted); }
     .qr-empty {
       font-size: 0.8125rem;
       color: var(--muted);
@@ -312,22 +291,6 @@
       <div class="app-header-spacer" aria-hidden="true"></div>
       <div class="app-header-actions">
         <button type="button" class="secondary" id="navToggle">扫码</button>
-        <details class="settings" id="settingsPanel">
-          <summary>设置</summary>
-          <div class="settings-body">
-            <label>
-              单码最大长度（字符）
-              <input type="number" id="maxLen" min="100" max="2953" value="800" />
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="hoverDimToggle" />
-              多码时悬停高亮（其余约 3% 透明度）
-            </label>
-            <p class="hint">
-              单码长度 100～2953 字符；超长会并排多个码，按标签顺序扫描还原。在一段里输入内容后，末尾会自动多出一行空段；删到只剩两行都空时会合并为一行。
-            </p>
-          </div>
-        </details>
       </div>
     </header>
 
@@ -345,7 +308,7 @@
       <p class="scan-status" id="scanStatus"></p>
       <div class="scan-result-block">
         <span class="scan-result-label">识别结果</span>
-        <textarea id="scanResultOut" readonly rows="5" spellcheck="false" placeholder="识别成功后内容显示在此，可多次扫描追加"></textarea>
+        <textarea id="scanResultOut" readonly rows="5" spellcheck="false" placeholder="识别成功后显示在此；再次扫描会替换为新的内容"></textarea>
         <div class="scan-result-actions">
           <button type="button" id="scanCopyBtn" class="secondary">复制</button>
         </div>
@@ -356,13 +319,24 @@
     </div>
   </div>
 
+  <div id="qrPageOverlay" class="qr-page-overlay" hidden aria-hidden="true">
+    <div class="qr-page-overlay__panel" role="dialog" aria-modal="true" aria-labelledby="qrPageOverlayHint">
+      <canvas id="qrPageOverlayCanvas" class="qr-page-overlay__canvas" width="0" height="0"></canvas>
+      <p id="qrPageOverlayHint" class="qr-page-overlay__hint">点击空白处或图片关闭</p>
+    </div>
+  </div>
+
   <script>
     (function () {
       var rowsEl = document.getElementById("rows");
-      var maxLenInput = document.getElementById("maxLen");
-      var rowCounter = 0;
-      var MIN_CHUNK = 100;
-      var MAX_CHUNK = 2953;
+
+      function updateRowTitles() {
+        var rows = rowsEl.querySelectorAll(".row");
+        for (var i = 0; i < rows.length; i++) {
+          var title = rows[i].querySelector(".row-title");
+          if (title) title.textContent = "第 " + (i + 1) + " 段";
+        }
+      }
 
       var html5QrCode = null;
       var scanRunning = false;
@@ -370,6 +344,117 @@
       var pageMain = document.getElementById("page-main");
       var pageScan = document.getElementById("page-scan");
       var scanPreviewShell = document.getElementById("scanPreviewShell");
+      var qrPageOverlay = document.getElementById("qrPageOverlay");
+      var qrPageOverlayCanvas = document.getElementById("qrPageOverlayCanvas");
+
+      function closeQrPageOverlay() {
+        if (!qrPageOverlay || qrPageOverlay.hidden) return;
+        qrPageOverlay.hidden = true;
+        qrPageOverlay.setAttribute("aria-hidden", "true");
+        if (qrPageOverlayCanvas) {
+          qrPageOverlayCanvas.width = 0;
+          qrPageOverlayCanvas.height = 0;
+          qrPageOverlayCanvas.removeAttribute("style");
+        }
+        document.body.style.overflow = "";
+      }
+
+      function openQrPageOverlay(holder) {
+        if (!holder || !qrPageOverlayCanvas || !qrPageOverlay) return;
+        var row = holder.closest(".row");
+        var ta = row && row.querySelector("textarea");
+        var text = ta ? ta.value : "";
+        if (!text.trim()) return;
+
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var cssW = Math.floor(Math.min(vw * 0.92, vh * 0.88));
+        cssW = Math.max(280, Math.min(cssW, 960));
+        var dpr = Math.min(window.devicePixelRatio || 1, 3);
+        var pixelW = Math.floor(cssW * dpr);
+        pixelW = Math.min(Math.max(pixelW, 200), 2048);
+
+        loadQrLib()
+          .then(function (QR) {
+            var canvas = qrPageOverlayCanvas;
+            function tryPaint(ecc) {
+              return QR.toCanvas(canvas, text.trim(), {
+                width: pixelW,
+                margin: 4,
+                errorCorrectionLevel: ecc,
+                color: { dark: "#000000", light: "#ffffff" },
+              });
+            }
+            return tryPaint("M").catch(function () {
+              return tryPaint("L");
+            });
+          })
+          .then(function () {
+            qrPageOverlayCanvas.style.width = cssW + "px";
+            qrPageOverlayCanvas.style.height = cssW + "px";
+            qrPageOverlayCanvas.style.maxWidth = "none";
+            qrPageOverlayCanvas.style.maxHeight = "none";
+            qrPageOverlay.hidden = false;
+            qrPageOverlay.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+          })
+          .catch(function () {});
+      }
+
+      if (qrPageOverlay) {
+        qrPageOverlay.addEventListener("click", function () {
+          closeQrPageOverlay();
+        });
+      }
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && qrPageOverlay && !qrPageOverlay.hidden) {
+          closeQrPageOverlay();
+        }
+      });
+
+      var qrLibPromise = null;
+      function loadQrLib() {
+        if (!qrLibPromise) {
+          qrLibPromise = import("https://esm.sh/qrcode@1.5.4?bundle").then(function (m) {
+            return m.default;
+          });
+        }
+        return qrLibPromise;
+      }
+
+      function bindQrOverlayOpen(holder) {
+        holder.classList.add("qr-holder--interactive");
+        holder.setAttribute("title", "点击放大展示，便于扫描");
+        if (holder._spqrOverlayBound) return;
+        holder._spqrOverlayBound = true;
+        holder.setAttribute("tabindex", "0");
+        holder.setAttribute("role", "button");
+        holder.addEventListener("click", function () {
+          if (holder.querySelector("canvas")) openQrPageOverlay(holder);
+        });
+        holder.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (holder.querySelector("canvas")) openQrPageOverlay(holder);
+          }
+        });
+      }
+
+      function paintQrInHolder(holder, text, eccLevel) {
+        holder.innerHTML = "";
+        return loadQrLib().then(function (QR) {
+          var canvas = document.createElement("canvas");
+          return QR.toCanvas(canvas, text, {
+            width: 200,
+            margin: 2,
+            errorCorrectionLevel: eccLevel,
+            color: { dark: "#000000", light: "#ffffff" },
+          }).then(function () {
+            holder.appendChild(canvas);
+            bindQrOverlayOpen(holder);
+          });
+        });
+      }
 
       function stopScanAndReset() {
         var regionEl = document.getElementById("scan-reader");
@@ -398,6 +483,7 @@
       }
 
       function showMain() {
+        closeQrPageOverlay();
         stopScanAndReset();
         pageScan.hidden = true;
         pageMain.hidden = false;
@@ -406,6 +492,7 @@
       }
 
       function showScanPage() {
+        closeQrPageOverlay();
         pageMain.hidden = true;
         pageScan.hidden = false;
         document.title = "SPQR";
@@ -413,41 +500,10 @@
         updateNavButton();
       }
 
-      function clampMaxLenInput() {
-        var n = parseInt(maxLenInput.value, 10);
-        if (!isFinite(n)) {
-          maxLenInput.value = "800";
-          return;
-        }
-        maxLenInput.value = String(Math.min(MAX_CHUNK, Math.max(MIN_CHUNK, n)));
-      }
-
-      function getMaxLen() {
-        var n = parseInt(maxLenInput.value, 10);
-        if (!isFinite(n) || n < MIN_CHUNK) return 800;
-        return Math.min(MAX_CHUNK, Math.max(MIN_CHUNK, n));
-      }
-
-      function splitChunks(str, maxLen) {
-        if (!str.length) return [];
-        var chunks = [];
-        for (var i = 0; i < str.length; i += maxLen) {
-          chunks.push(str.slice(i, i + maxLen));
-        }
-        return chunks;
-      }
-
-      function hoverDimEnabled() {
-        var el = document.getElementById("hoverDimToggle");
-        return el && el.checked;
-      }
-
-      function renderRowQrs(zoneEl, text, maxLen) {
+      function renderRowQrs(zoneEl, text) {
         zoneEl.innerHTML = "";
-        zoneEl.classList.remove("qr-zone--multi", "qr-zone--single", "qr-hover-dim");
 
-        var chunks = splitChunks(text, maxLen);
-        if (!chunks.length) {
+        if (!text.trim().length) {
           var empty = document.createElement("p");
           empty.className = "qr-empty";
           empty.textContent = "粘贴内容后将在此显示二维码";
@@ -455,60 +511,47 @@
           return;
         }
 
-        if (typeof QRCode === "undefined") {
-          var libErr = document.createElement("p");
-          libErr.className = "error-msg";
-          libErr.textContent =
-            "二维码生成脚本未加载。请联网后刷新。";
-          zoneEl.appendChild(libErr);
-          return;
+        var wrap = document.createElement("div");
+        wrap.className = "qr-item";
+        var holder = document.createElement("div");
+        holder.className = "qr-holder";
+        wrap.appendChild(holder);
+        zoneEl.appendChild(wrap);
+
+        function fail(msg) {
+          zoneEl.innerHTML = "";
+          var errP = document.createElement("p");
+          errP.className = "error-msg";
+          errP.textContent = msg;
+          zoneEl.appendChild(errP);
         }
 
-        var total = chunks.length;
-        if (total > 1) {
-          zoneEl.classList.add("qr-zone--multi");
-          if (hoverDimEnabled()) zoneEl.classList.add("qr-hover-dim");
-        } else {
-          zoneEl.classList.add("qr-zone--single");
-        }
-
-        chunks.forEach(function (chunk, idx) {
-          var wrap = document.createElement("div");
-          wrap.className = "qr-item";
-          var holder = document.createElement("div");
-          holder.className = "qr-holder";
-          var label = document.createElement("span");
-          label.className = "qr-label";
-          label.textContent = total > 1 ? idx + 1 + " / " + total : "二维码";
-
-          try {
-            new QRCode(holder, {
-              text: chunk,
-              width: 200,
-              height: 200,
-              colorDark: "#000000",
-              colorLight: "#ffffff",
-              correctLevel: QRCode.CorrectLevel.M,
-            });
-          } catch (e) {
-            var errP = document.createElement("p");
-            errP.className = "error-msg";
-            errP.textContent = "生成失败：" + (e && e.message ? e.message : String(e));
-            zoneEl.appendChild(errP);
-            return;
-          }
-
-          wrap.appendChild(holder);
-          wrap.appendChild(label);
-          zoneEl.appendChild(wrap);
-        });
+        paintQrInHolder(holder, text, "M")
+          .catch(function (e1) {
+            var m = e1 && e1.message ? e1.message : String(e1);
+            if (/too big|too large|cannot contain|overflow|amount of data/i.test(m)) {
+              return paintQrInHolder(holder, text, "L");
+            }
+            throw e1;
+          })
+          .catch(function (e) {
+            var net =
+              e && (e.message === "Failed to fetch" || /network|load failed|import/i.test(String(e.message)));
+            fail(
+              net
+                ? "二维码生成库加载失败，请检查网络后刷新页面。"
+                : "生成失败：" +
+                    (e && e.message ? e.message : String(e)) +
+                    "（单段过长时请拆成多段输入）"
+            );
+          });
       }
 
       function refreshAllRows() {
         rowsEl.querySelectorAll(".row").forEach(function (row) {
           var ta = row.querySelector("textarea");
           var zone = row.querySelector(".qr-zone");
-          if (ta && zone) renderRowQrs(zone, ta.value, getMaxLen());
+          if (ta && zone) renderRowQrs(zone, ta.value);
         });
       }
 
@@ -534,10 +577,10 @@
           changed = true;
         }
         if (changed) refreshAllRows();
+        updateRowTitles();
       }
 
       function createRow(initialText) {
-        rowCounter += 1;
         var row = document.createElement("div");
         row.className = "row";
 
@@ -545,19 +588,8 @@
         head.className = "row-head";
         var title = document.createElement("span");
         title.className = "row-title";
-        title.textContent = "第 " + rowCounter + " 段";
-        var removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.className = "danger";
-        removeBtn.textContent = "删除";
-        removeBtn.addEventListener("click", function () {
-          row.remove();
-          if (!rowsEl.children.length) createRow();
-          refreshAllRows();
-          normalizeTrailingRows();
-        });
+        title.textContent = "第 1 段";
         head.appendChild(title);
-        head.appendChild(removeBtn);
 
         var ta = document.createElement("textarea");
         ta.placeholder = "粘贴或输入文本…";
@@ -567,7 +599,7 @@
         var zone = document.createElement("div");
         zone.className = "qr-zone";
         if (ta.value.length) {
-          renderRowQrs(zone, ta.value, getMaxLen());
+          renderRowQrs(zone, ta.value);
         } else {
           var empty = document.createElement("p");
           empty.className = "qr-empty";
@@ -576,7 +608,7 @@
         }
 
         function onEdit() {
-          renderRowQrs(zone, ta.value, getMaxLen());
+          renderRowQrs(zone, ta.value);
           normalizeTrailingRows();
         }
 
@@ -589,14 +621,14 @@
         row.appendChild(ta);
         row.appendChild(zone);
         rowsEl.appendChild(row);
+        updateRowTitles();
       }
 
       function applyScanResult(text) {
         var out = document.getElementById("scanResultOut");
         var status = document.getElementById("scanStatus");
         if (out) {
-          if (out.value) out.value += "\n";
-          out.value += text;
+          out.value = text;
         }
         if (status) status.textContent = "已识别，可复制下方文本。";
       }
@@ -738,10 +770,6 @@
         if (scanPreviewShell) scanPreviewShell.classList.remove("is-live");
         if (status) status.textContent = "已停止。";
       });
-
-      maxLenInput.addEventListener("blur", clampMaxLenInput);
-      maxLenInput.addEventListener("input", refreshAllRows);
-      document.getElementById("hoverDimToggle").addEventListener("change", refreshAllRows);
 
       createRow();
       normalizeTrailingRows();
