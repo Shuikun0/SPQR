@@ -50,6 +50,15 @@
       font-weight: 600;
       margin: 0;
       text-align: center;
+      white-space: nowrap;
+    }
+    .app-title-anchor {
+      position: relative;
+      display: inline-block;
+      vertical-align: baseline;
+    }
+    .app-title-label {
+      display: inline-block;
     }
     .app-tabs {
       display: inline-flex;
@@ -80,6 +89,33 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
     .app-tab:focus-visible {
+      outline: 2px solid rgba(37, 99, 235, 0.45);
+      outline-offset: 2px;
+    }
+    .app-title-github {
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 0.04em;
+      color: var(--muted);
+      opacity: 0.2;
+      text-decoration: none;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0.08em 0.04em;
+      font-size: 0.62em;
+      line-height: 1;
+      font-weight: 500;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .app-title-github:hover {
+      opacity: 0.55;
+      color: var(--text);
+    }
+    .app-title-github:focus-visible {
+      opacity: 0.7;
+      color: var(--text);
       outline: 2px solid rgba(37, 99, 235, 0.45);
       outline-offset: 2px;
     }
@@ -405,7 +441,12 @@
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <h1 class="app-title">🏛️ SPQR</h1>
+      <h1 class="app-title">
+        <span class="app-title-anchor">
+          <span class="app-title-label">🏛️ SPQR</span>
+          <a class="app-title-github" href="https://github.com/Shuikun0/SPQR" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 上查看源码" title="GitHub 仓库">↗</a>
+        </span>
+      </h1>
       <nav class="app-tabs" role="tablist" aria-label="功能切换">
         <button type="button" class="app-tab is-active" id="tabGenerate" role="tab" aria-selected="true" aria-controls="page-main">
           生成
@@ -921,6 +962,10 @@
       }
       if (tabScan) {
         tabScan.addEventListener("click", function () {
+          if (!pageScan.hidden) {
+            if (!scanRunning) startScanFromUser();
+            return;
+          }
           showScanPage();
         });
       }
