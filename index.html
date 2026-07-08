@@ -14,7 +14,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SPQR</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.88em' x='50%25' text-anchor='middle' font-size='76'%3E%F0%9F%8F%9B%3C/text%3E%3C/svg%3E" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
       --bg: #f4f4f5;
@@ -603,13 +602,46 @@
 
       var html5QrCode = null;
       var scanRunning = false;
+      var scanStarting = false;
+      var scanStopPromise = null;
+      var scanSession = 0;
       var lastDecodedText = "";
+      var html5QrLibPromise = null;
+      var QR_RENDER_DEBOUNCE_MS = 200;
 
       var pageMain = document.getElementById("page-main");
       var pageScan = document.getElementById("page-scan");
       var scanPreviewShell = document.getElementById("scanPreviewShell");
       var qrPageOverlay = document.getElementById("qrPageOverlay");
       var qrPageOverlayCanvas = document.getElementById("qrPageOverlayCanvas");
+
+      function loadHtml5Qrcode() {
+        if (typeof Html5Qrcode !== "undefined") {
+          return Promise.resolve();
+        }
+        if (!html5QrLibPromise) {
+          html5QrLibPromise = new Promise(function (resolve, reject) {
+            var s = document.createElement("script");
+            s.src =
+              "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js";
+            s.async = true;
+            s.onload = function () {
+              if (typeof Html5Qrcode !== "undefined") {
+                resolve();
+              } else {
+                html5QrLibPromise = null;
+                reject(new Error("扫码库加载失败"));
+              }
+            };
+            s.onerror = function () {
+              html5QrLibPromise = null;
+              reject(new Error("扫码库加载失败，请检查网络后刷新。"));
+            };
+            document.head.appendChild(s);
+          });
+        }
+        return html5QrLibPromise;
+      }
 
       function closeQrPageOverlay() {
         if (!qrPageOverlay || qrPageOverlay.hidden) return;
@@ -720,25 +752,41 @@
         });
       }
 
-      function stopScanAndReset() {
+      function clearScanPreviewDom() {
         var regionEl = document.getElementById("scan-reader");
-        if (html5QrCode && scanRunning) {
-          html5QrCode.stop().then(
-            function () {
-              scanRunning = false;
-            },
-            function () {
-              scanRunning = false;
-            }
-          );
-        } else {
-          scanRunning = false;
-        }
         if (regionEl) regionEl.innerHTML = "";
         if (scanPreviewShell) {
           scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
         }
-        lastDecodedText = "";
+      }
+
+      function stopScanCamera() {
+        if (scanStopPromise) return scanStopPromise;
+        if (!html5QrCode) {
+          scanRunning = false;
+          return Promise.resolve();
+        }
+        var instance = html5QrCode;
+        scanStopPromise = instance
+          .stop()
+          .catch(function () {})
+          .then(function () {
+            scanRunning = false;
+            if (html5QrCode === instance) html5QrCode = null;
+          })
+          .finally(function () {
+            scanStopPromise = null;
+          });
+        return scanStopPromise;
+      }
+
+      function stopScanAndReset() {
+        scanSession += 1;
+        scanStarting = false;
+        return stopScanCamera().then(function () {
+          clearScanPreviewDom();
+          lastDecodedText = "";
+        });
       }
 
       var tabGenerate = document.getElementById("tabGenerate");
@@ -755,11 +803,11 @@
 
       function showMain() {
         closeQrPageOverlay();
-        stopScanAndReset();
         pageScan.hidden = true;
         pageMain.hidden = false;
         document.title = "SPQR";
         updateTabs();
+        stopScanAndReset();
       }
 
       function showScanPage() {
@@ -767,12 +815,17 @@
         pageMain.hidden = true;
         pageScan.hidden = false;
         document.title = "SPQR";
-        stopScanAndReset();
         updateTabs();
-        startScanFromUser();
+        stopScanAndReset().then(function () {
+          startScanFromUser();
+        });
       }
 
-      function renderRowQrs(zoneEl, text) {
+      function renderRowQrs(zoneEl, text, tokenRef, expectedToken) {
+        if (tokenRef && expectedToken != null && tokenRef.token !== expectedToken) {
+          return;
+        }
+
         zoneEl.innerHTML = "";
 
         if (!text.trim().length) {
@@ -790,7 +843,12 @@
         wrap.appendChild(holder);
         zoneEl.appendChild(wrap);
 
+        function stillCurrent() {
+          return !tokenRef || expectedToken == null || tokenRef.token === expectedToken;
+        }
+
         function fail(msg) {
+          if (!stillCurrent()) return;
           zoneEl.innerHTML = "";
           var errP = document.createElement("p");
           errP.className = "error-msg";
@@ -799,14 +857,23 @@
         }
 
         paintQrInHolder(holder, text, "M")
+          .then(function () {
+            if (!stillCurrent()) {
+              holder.innerHTML = "";
+            }
+          })
           .catch(function (e1) {
+            if (!stillCurrent()) return;
             var m = e1 && e1.message ? e1.message : String(e1);
             if (/too big|too large|cannot contain|overflow|amount of data/i.test(m)) {
-              return paintQrInHolder(holder, text, "L");
+              return paintQrInHolder(holder, text, "L").then(function () {
+                if (!stillCurrent()) holder.innerHTML = "";
+              });
             }
             throw e1;
           })
           .catch(function (e) {
+            if (!stillCurrent()) return;
             var net =
               e && (e.message === "Failed to fetch" || /network|load failed|import/i.test(String(e.message)));
             fail(
@@ -819,11 +886,30 @@
           });
       }
 
+      function scheduleRowQrRender(row, zone, ta) {
+        if (row._qrDebounceTimer) clearTimeout(row._qrDebounceTimer);
+        if (!row._qrRenderToken) row._qrRenderToken = { token: 0 };
+        row._qrRenderToken.token += 1;
+        var expected = row._qrRenderToken.token;
+        var text = ta.value;
+        row._qrDebounceTimer = setTimeout(function () {
+          row._qrDebounceTimer = null;
+          renderRowQrs(zone, text, row._qrRenderToken, expected);
+        }, QR_RENDER_DEBOUNCE_MS);
+      }
+
       function refreshAllRows() {
         rowsEl.querySelectorAll(".row").forEach(function (row) {
           var ta = row.querySelector("textarea");
           var zone = row.querySelector(".qr-zone");
-          if (ta && zone) renderRowQrs(zone, ta.value);
+          if (!ta || !zone) return;
+          if (row._qrDebounceTimer) {
+            clearTimeout(row._qrDebounceTimer);
+            row._qrDebounceTimer = null;
+          }
+          if (!row._qrRenderToken) row._qrRenderToken = { token: 0 };
+          row._qrRenderToken.token += 1;
+          renderRowQrs(zone, ta.value, row._qrRenderToken, row._qrRenderToken.token);
         });
       }
 
@@ -847,7 +933,13 @@
           var tas = rowsEl.querySelectorAll(".row textarea");
           var n = tas.length;
           if (n >= 2 && tas[n - 1].value.trim() === "" && tas[n - 2].value.trim() === "") {
-            rowsEl.lastElementChild.remove();
+            var removed = rowsEl.lastElementChild;
+            if (removed && removed._qrDebounceTimer) {
+              clearTimeout(removed._qrDebounceTimer);
+              removed._qrDebounceTimer = null;
+            }
+            if (removed && removed._qrRenderToken) removed._qrRenderToken.token += 1;
+            removed.remove();
             changed = true;
           } else {
             break;
@@ -870,6 +962,7 @@
       function createRow(initialText) {
         var row = document.createElement("div");
         row.className = "row";
+        row._qrRenderToken = { token: 0 };
 
         var head = document.createElement("div");
         head.className = "row-head";
@@ -886,7 +979,8 @@
         var zone = document.createElement("div");
         zone.className = "qr-zone";
         if (ta.value.length) {
-          renderRowQrs(zone, ta.value);
+          row._qrRenderToken.token += 1;
+          renderRowQrs(zone, ta.value, row._qrRenderToken, row._qrRenderToken.token);
         } else {
           var empty = document.createElement("p");
           empty.className = "qr-empty";
@@ -895,7 +989,7 @@
         }
 
         function onEdit() {
-          renderRowQrs(zone, ta.value);
+          scheduleRowQrRender(row, zone, ta);
           normalizeTrailingRows();
         }
 
@@ -997,21 +1091,6 @@
         }
       }
 
-      function stopScanOnly() {
-        if (html5QrCode && scanRunning) {
-          html5QrCode.stop().then(
-            function () {
-              scanRunning = false;
-            },
-            function () {
-              scanRunning = false;
-            }
-          );
-        } else {
-          scanRunning = false;
-        }
-      }
-
       function scanConfig() {
         return { fps: 12, qrbox: { width: 280, height: 280 } };
       }
@@ -1031,39 +1110,54 @@
       }
 
       function startScanFromUser() {
-        if (scanRunning) return;
-        var regionEl = document.getElementById("scan-reader");
-        if (typeof Html5Qrcode === "undefined") {
-          alert("扫码库未加载，请联网后刷新。");
-          return;
-        }
-        stopScanOnly();
-        if (regionEl) regionEl.innerHTML = "";
-        if (scanPreviewShell) {
-          scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
-        }
-        lastDecodedText = "";
+        if (scanRunning || scanStarting) return;
+        if (pageScan.hidden) return;
+        scanStarting = true;
+        var session = ++scanSession;
 
-        html5QrCode = new Html5Qrcode("scan-reader");
-        var useMirrorPreview = true;
-        startScanWithCamera({ facingMode: "user" })
-          .catch(function () {
-            useMirrorPreview = false;
-            return startScanWithCamera({ facingMode: "environment" });
+        loadHtml5Qrcode()
+          .then(function () {
+            if (session !== scanSession || pageScan.hidden) return;
+            return stopScanCamera();
           })
           .then(function () {
-            scanRunning = true;
-            if (scanPreviewShell) {
-              scanPreviewShell.classList.add("is-live");
-              scanPreviewShell.classList.toggle("scan-preview--mirror", useMirrorPreview);
-            }
+            if (session !== scanSession || pageScan.hidden) return;
+
+            clearScanPreviewDom();
+            lastDecodedText = "";
+
+            html5QrCode = new Html5Qrcode("scan-reader");
+            var useMirrorPreview = true;
+            return startScanWithCamera({ facingMode: "user" })
+              .catch(function () {
+                if (session !== scanSession || pageScan.hidden) {
+                  return Promise.reject({ name: "AbortError", message: "cancelled" });
+                }
+                useMirrorPreview = false;
+                return startScanWithCamera({ facingMode: "environment" });
+              })
+              .then(function () {
+                if (session !== scanSession || pageScan.hidden) {
+                  return stopScanCamera().then(function () {
+                    clearScanPreviewDom();
+                  });
+                }
+                scanRunning = true;
+                if (scanPreviewShell) {
+                  scanPreviewShell.classList.add("is-live");
+                  scanPreviewShell.classList.toggle("scan-preview--mirror", useMirrorPreview);
+                }
+              });
           })
           .catch(function (e) {
+            if (session !== scanSession) return;
             scanRunning = false;
-            if (scanPreviewShell) {
-              scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
-            }
+            clearScanPreviewDom();
+            if (e && e.name === "AbortError") return;
             alert((e && e.message) || String(e));
+          })
+          .finally(function () {
+            if (session === scanSession) scanStarting = false;
           });
       }
 
@@ -1075,7 +1169,7 @@
       if (tabScan) {
         tabScan.addEventListener("click", function () {
           if (!pageScan.hidden) {
-            if (!scanRunning) startScanFromUser();
+            if (!scanRunning && !scanStarting) startScanFromUser();
             return;
           }
           showScanPage();
@@ -1083,12 +1177,12 @@
       }
 
       scanPreviewShell.addEventListener("click", function () {
-        if (scanRunning) return;
+        if (scanRunning || scanStarting) return;
         startScanFromUser();
       });
 
       scanPreviewShell.addEventListener("keydown", function (e) {
-        if (scanRunning) return;
+        if (scanRunning || scanStarting) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           startScanFromUser();
@@ -1098,13 +1192,7 @@
       document.getElementById("scanCopyBtn").addEventListener("click", copyScanResult);
 
       document.getElementById("scanStop").addEventListener("click", function () {
-        var regionEl = document.getElementById("scan-reader");
-        stopScanOnly();
-        lastDecodedText = "";
-        if (regionEl) regionEl.innerHTML = "";
-        if (scanPreviewShell) {
-          scanPreviewShell.classList.remove("is-live", "scan-preview--mirror");
-        }
+        stopScanAndReset();
       });
 
       createRow();
